@@ -1,0 +1,36 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- main
+
+pool:
+  name: 'myagentpool'
+
+steps:
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'git clone https://github.com/Hemanth5588/maven_java.git'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'cd /home/azureuser/myagent/_work/1/s;mvn package'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'scp /home/azureuser/myagent/_work/1/s/webapp/target/webapp.war azureuser@20.127.244.45:/var/lib/tomcat10/webapps/testapp.war'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'git clone https://github.com/Hemanth5588/FunctionalTesting.git'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'java -jar /home/azureuser/myagent/_work/1/s/FunctionalTesting/testing.jar'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'scp /home/azureuser/myagent/_work/1/s/webapp/target/webapp.war azureuser@20.127.212.105:/var/lib/tomcat10/webapps/prodapp.war'
