@@ -1,0 +1,38 @@
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger: none
+
+resources:
+ pipelines:
+   - pipeline: Worker-app
+     source: Worker-app
+     trigger: true
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: 'b1d0523c-41af-4566-a513-b8b9608899c6'
+  imageRepository: 'cicdpipeline'
+  containerRegistry: 'myvotingrepo.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/result/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+  # Agent VM image name
+pool:
+ name: 'Agent-1'
+
+stages:
+- stage: DeploytoQA
+  displayName: DeploytoQA
+  jobs:
+   - job: CopyDockerComposefile
+     displayName: CopyDockerComposefile
+     pool:
+      name: 'Agent-1'
+      steps:
+       - task: Bash@3
+         inputs:
+         targetType: 'inline'
+         script: 'cp /home/azureuser/myagent/_work/4/s/docker-compose.yml /home/azureuser/'
+

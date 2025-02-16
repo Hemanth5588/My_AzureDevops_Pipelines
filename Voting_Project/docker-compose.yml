@@ -1,0 +1,25 @@
+---
+version: '3'
+services:
+   votingapp:
+        image: myvotingproject.azurecr.io/voteapp:19
+        ports:
+         - 5050:80
+
+   redis:
+        image: redis:latest
+
+   workerapp:
+        image: myvotingproject.azurecr.io/workerapp:21
+
+   postgres:
+        image: postgres:latest
+        environment:
+            POSTGRES_PASSWORD: intelliqit
+            POSTGRES_USER: myuser
+            POSTGRES_DB: mydb
+   resultapp:
+        image: myvotingproject.azurecr.io/resultapp:20
+        ports:
+          - 6060:80
+...

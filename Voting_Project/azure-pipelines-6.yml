@@ -1,0 +1,90 @@
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger: none
+
+resources:
+ pipelines:
+   - pipeline: 'Worker-app'
+     source: 'Worker-app'
+     trigger: true
+
+  # Agent VM image name
+pool:
+  name: 'Agent1'
+
+stages:
+- stage: DeploytoQA
+  displayName: DeploytoQA
+  jobs:
+  - job: CopyingDockerComposeFile
+    displayName: CopyingDockerComposeFile
+    pool:
+      name: 'Agent1'
+    steps:
+     - task: Bash@3
+       inputs:
+         targetType: 'inline'
+         script: 'scp /home/azureuser/myagent/_work/3/s/docker-compose.yml azureuser@172.203.250.188:/home/azureuser'
+
+  - job: ExecutingDockerComposeFile
+    displayName: ExecutingDockerComposeFile
+    dependsOn: CopyingDockerComposeFile
+    condition: succeeded('CopyingDockerComposeFile')
+    pool:
+      name: 'Agent1'
+    steps:
+     - task: Bash@3
+       inputs:
+         targetType: 'inline'
+         script: 'ssh azureuser@172.203.250.188 docker compose up -d'
+
+- stage: SeleniumTestting
+  displayName: SeleniumTestting
+  jobs:
+  - job: SeleniumTestting
+    displayName: SeleniumTestting
+    pool:
+      name: 'Agent1'
+    steps:
+     - task: Bash@3
+       displayName: CloningSeleniumCode
+       inputs:
+         targetType: 'inline'
+         script: 'git clone https://github.com/Hemanth5588/FunctionalTesting.git'
+     - task: Bash@3
+       displayName: RunningSeleniumCode
+       inputs:
+         targetType: 'inline'
+         script: 'java -jar /home/azureuser/myagent/_work/4/s/FunctionalTesting/testing.jar'
+
+  - job: ClearingQA
+    displayName: ClearingQA
+    dependsOn: SeleniumTestting
+    pool:
+      name: 'Agent1'
+    steps:
+     - task: Bash@3
+       displayName: ClearingQA
+       inputs:
+         targetType: 'inline'
+         script: 'ssh azureuser@172.203.250.188 docker compose down'
+
+- stage: DeploytoProd
+  displayName: DeploytoProd
+  jobs:
+  - job: DeploytoProd
+    displayName: DeploytoProd
+    pool:
+      name: 'Agent1'
+    steps:
+      - task: KubernetesManifest@1
+        inputs:
+          action: 'deploy'
+          connectionType: 'azureResourceManager'
+          azureSubscriptionConnection: 'Pay-As-You-Go(5336979e-b394-4401-a156-9545882c4f5e)'
+          azureResourceGroup: 'votingproject'
+          kubernetesCluster: 'K8Cluster-1'
+          manifests: 'k8s-specifications/*'
+    
