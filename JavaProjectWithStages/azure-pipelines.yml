@@ -1,0 +1,139 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- main
+
+pool:
+  name: 'Agent-1'
+stages:
+- stage: 'DownloadingCode'
+  displayName: 'DownloadingCode'
+  jobs:
+    - job: 'CodeDownloading'
+      displayName: 'Code Downloading'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'git clone https://github.com/Hemanth5588/maven_java.git'
+
+- stage: 'Build'
+  displayName: 'BuildWarfile'
+  jobs:
+    - job: 'Build'
+      displayName: 'Building Warfile'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'cd /home/azureuser/myagent/_work/2/s;mvn package; cp webapp/target/webapp.war /home/azureuser/webapp.war'
+
+- stage: 'Dockerfile'
+  displayName: 'DockerfileCreation'
+  jobs:
+    - job: 'CreateDockerfile'
+      displayName: 'Creating Dockerfile'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: |
+                cd /home/azureuser
+                cat <<EOF > dockerfile
+                FROM tomee
+                COPY webapp.war /usr/local/tomee/webapps/testapp.war
+                EOF
+
+- stage: 'BuildDockerImage'
+  displayName: 'BuildDockerImage'
+  jobs:
+    - job: 'BuildDockerImage'
+      displayName: 'Building DockerImage'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'cd /home/azureuser;docker build -t myazurepipeline.azurecr.io/myjavaapp .'
+
+- stage: 'PushDockerImage'
+  displayName: 'PushDockerImage'
+  jobs:
+    - job: 'PushDockerImage'
+      displayName: 'Pushing DockerImage'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'docker push myazurepipeline.azurecr.io/myjavaapp'
+
+- stage: 'DeployintoQA'
+  displayName: 'DeployintoQA'
+  jobs:
+    - job: 'DeployintoQA'
+      displayName: 'Deploying into QA'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'ssh azureuser@20.106.169.249 docker run --name myjavaapp -d -p 8080:8080 myazurepipeline.azurecr.io/myjavaapp'
+
+- stage: 'SeleniumTesting'
+  displayName: 'SeleniumTesting'
+  jobs:
+    - job: 'DownloadSeleniumcode'
+      displayName: 'Downloading Selenium Code'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'cd /home/azureuser/;git clone https://github.com/Hemanth5588/FunctionalTesting.git'
+
+    - job: 'RunSeleniumcode'
+      displayName: 'Running Selenium Code'
+      pool:
+       name: 'Agent-1'
+      dependsOn: 'DownloadSeleniumcode'
+      steps:
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'cd /home/azureuser/FunctionalTesting;java -jar testing.jar'
+        - task: Bash@3
+          inputs:
+           targetType: 'inline'
+           script: 'ssh azureuser@20.106.169.249 docker rm -f myjavaapp'
+
+- stage: 'DeployintoProd'
+  displayName: 'DeployintoProd'
+  jobs:
+    - job: 'DeployintoProd'
+      displayName: 'Deploying into Prod'
+      pool:
+       name: 'Agent-1'
+      steps:
+        - task: KubernetesManifest@1
+          inputs:
+           action: 'deploy'
+           connectionType: 'azureResourceManager'
+           azureSubscriptionConnection: 'Pay-As-You-Go(5336979e-b394-4401-a156-9545882c4f5e)'
+           azureResourceGroup: 'Project-1'
+           kubernetesCluster: 'K8Cluster-1'
+           useClusterAdmin: true
+           manifests: 'myapp.yml'
